@@ -1,0 +1,615 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+  
+### Импорт библиотек
+Импортируем библиотеки:
+```{r Импорт библиотек}
+library(ggplot2)
+library(stats)
+library(utils)
+library(caTools)
+```
+  
+### Импорт данных и фильтрация
+## Импорт
+Загрузим данные, полученные путём опроса (данные должны быть в кодирвоке ANSI):
+```{r Импорт данных}
+raw_data <- read.csv("data1.csv", sep=";")
+```
+  
+## Фильртация
+Отфильтруем данные:
+```{r Фильтрация данных}
+filtered_data <- subset(raw_data,
+                        Сколько.вам.лет >= 18
+                        & Сколько.вам.лет <= 24
+                        & Если.не.брать.в.расчёт.время.на.сон..работу.и.учёбу..в.том.числе.выполнение.домашнего.задания...сколько..примерно..свободного.времени.у.вас.остаётся..в.минутах.. >= 0
+                        & Если.не.брать.в.расчёт.время.на.сон..работу.и.учёбу..в.том.числе.выполнение.домашнего.задания...сколько..примерно..свободного.времени.у.вас.остаётся..в.минутах..< 720
+                        & Сколько.времени.вы.тратите.на.сон..в.часах.. < 16)
+```
+  
+### Интерпретация ответов на тест Спилберга-Ханина
+Выделим из опроса вопросы и ответы, относящиеся к тесту Спилберга-Ханина:
+```{r Выделение теста}
+spilbergHaninTestAnswers <- filtered_data[, 14:53]
+```
+  
+Преобразуем ответы в баллы в соответствии с тестом
+```{r Перевод ответов в баллы}
+mapping <- c('Нет это совсем не так' = 1, 'Пожалуй так' = 2, 'Верно' = 3, 'Совершенно верно' = 4)
+for(i in 1:length(spilbergHaninTestAnswers[,1]))
+{
+  temp <- vector(mode="integer", length=length(spilbergHaninTestAnswers[1,]))
+  for (j in 1:length(spilbergHaninTestAnswers[1,]))
+  {
+    temp[j] <- mapping[spilbergHaninTestAnswers[i,j]]
+  }
+  spilbergHaninTestAnswers[i, ] <- temp
+}
+```
+  
+Реализуем функции, дающие оценку степени тревожности в соответствии с тестом:
+```{r Интерпретация данных теста Спилберга-Ханина}
+get_factor <- function(number)
+{
+  disturbance_factors <- c("low", "middle", "high")
+  estimate <- ifelse(number <= 30,
+                        disturbance_factors[1],
+                        ifelse(number >= 31 & number <= 45,
+                               disturbance_factors[2],
+                               disturbance_factors[3]))
+  return(estimate)
+}
+
+get_spliberg_hanin_test_interp <- function(row)
+{
+  situational_disturbance_estimate <- sum(as.numeric(row[c(3, 4, 6, 7, 9, 12, 13, 14, 17, 18)])) - sum(as.numeric(row[c(1, 2, 5, 8, 10, 11, 15, 16, 19, 20)]))
+  personal_disturbance_extimate <- sum(as.numeric(row[c(22, 23, 24, 25, 28, 31, 32, 34, 35, 37, 38, 40)])) - sum(as.numeric(row[c(21, 26, 27, 30, 33, 36, 39)])) + 35
+  test_results <- data.frame(Situational = c(get_factor(situational_disturbance_estimate)), Personal = c(get_factor(personal_disturbance_extimate)))
+  return(test_results)
+}
+```
+  
+Составим столбцы с результатами теста Спилберга-Ханина:
+```{r Построение столбцов с результатами тестов}
+spilbergHaninResult_situational <- vector(length=length(spilbergHaninTestAnswers[,1]))
+spilbergHaninResult_personal <- vector(length=length(spilbergHaninTestAnswers[,1]))
+
+for (i in 1:length(spilbergHaninTestAnswers[,1]))
+{
+  results <- get_spliberg_hanin_test_interp(spilbergHaninTestAnswers[i,])
+  spilbergHaninResult_situational[i] <- results$Situational[1]
+  spilbergHaninResult_personal[i] <- results$Personal[1]
+}
+```
+Добавим полученные столбцы в выборку:
+```{r Добавление столбцов}
+filtered_data$SituationalDisturbance <- as.factor(spilbergHaninResult_situational)
+filtered_data$PersonalDisturbance <- as.factor(spilbergHaninResult_personal)
+```
+### Подготовка данных к построению модели
+Построим выборку на основе имеющейся, выделим в ней столбцы, по которым будет строиться модель:
+```{r подготовка финальной выборки}
+finished_data <- filtered_data[, 4:13]
+finished_data <- cbind(finished_data, filtered_data[,54:56])
+colnames(finished_data) <- c('Age', 'Sex', 'IsStudying', 'IsWorking', 'Music', 'FreeTime', 'SleepTime', 'NervousPeriod', 'ChronicWeak', 'Earning', 'IsDisturbed', 'SituationalDisturbance', 'PersonalDisturbance')
+```
+Выведем краткую сводку по выбокре:
+```{r Статистика по сырой выборке}
+summary(finished_data)
+```
+Как видим, многие категориальные переменные у нас заданы как строчные, а не категориальные, исправим это:
+```{r Факторные переменные}
+finished_data$Sex <- as.factor(finished_data$Sex)
+finished_data$ChronicWeak <- as.factor(finished_data$ChronicWeak)
+finished_data$IsStudying <- as.factor(finished_data$IsStudying)
+finished_data$Earning <- as.factor(finished_data$Earning)
+finished_data$IsWorking <- as.factor(finished_data$IsWorking)
+finished_data$IsDisturbed <- as.factor(finished_data$IsDisturbed)
+finished_data$Music <- as.factor(finished_data$Music)
+```
+Так же мы можем заметить, что **SituationalDisturbance** для всех записей принимает значений **low**, что делает его неинформативным. Удалим его из выборки:
+```{r Удаление неинформативных переменных}
+finished_data <- subset(finished_data, select=-c(SituationalDisturbance))
+```
+Посмотрим теперь статистику по выборке:
+```{r Статистика изменённых данных}
+summary(finished_data)
+```
+Упростим названия категорий для столбцов **Music**, **Earning** и **NervousPeriod**:
+```{r замена категориальных переменных}
+music_mapping <- c('Классическую (Моцарт, Бах и т.д.)'='Classic', 'Лёгкая (поп, рэп)'='Light', 'Умеренная (панк-рок, альтернативный рок, гранж, глэм)'='Middle', 'Я меломан'='Meloman')
+simple_music = vector(length=length(finished_data[,1]))
+for (i in 1:length(finished_data[,1]))
+{
+  simple_music[i] <- music_mapping[as.character(finished_data$Music[i])]
+}
+finished_data$Music <- as.factor(simple_music)
+
+earning_mapping <- c('до 15 тыс. руб'='less_than_15', 'от 15 до 30 тыс. руб'='from_15_to_30', 'от 30 до 60 тыс. руб'='from_30_to_60', 'от 60 тыс. руб и выше'='greater_than_60')
+simple_earning = vector(length=length(finished_data[,1]))
+for (i in 1:length(finished_data[,1]))
+{
+  simple_earning[i] <- earning_mapping[as.character(finished_data$Earning[i])]
+}
+finished_data$Earning <- as.factor(simple_earning)
+
+nervous_period_mapping <- c('Крайне редко' = 'Rare', 'Пару раз в год'='SeveralPerYear', 'Раз в месяц'='OnePerMonth', 'Пару раз в месяц'='SeveralPerMonth', 'Раз в неделю'='OnePerWeek', 'Пару раз в неделю'='SeveralPerWeek', 'Раз в день'='OnePerDay', 'Пару раз в день'='SeveralPerDay')
+simple_nervous_period = vector(length=length(finished_data[,1]))
+for (i in 1:length(finished_data[,1]))
+{
+  simple_nervous_period[i] <- nervous_period_mapping[as.character(finished_data$NervousPeriod[i])]
+}
+finished_data$NervousPeriod <- as.factor(simple_nervous_period)
+```
+Выборка готова, можно приступить к построению модели.
+  
+### Описание выборки
+В выборке имеются следующие параметры независимые параметры:  
+  Age - возраст  
+  Sex - пол  
+  IsStudying - обучается ли опрошенный где-либо  
+  IsWorking - работает ли опрошенный  
+  Music - какой тип музыки слушает слушает опрошенный  
+    Classic - классическая музыка  
+    Light - Лёгкая (поп, рэп)  
+    Middle - Умеренная (панк-рок, альтернативный рок, гранж, глэм)  
+    Meloman - опрошенный слушают несколько жанров  
+  Freetime - свободное от работы, учёбы и сна опрошенного, минуты  
+  SleepTime - время, отведённое опрошенным на сон, часы  
+  NervousPeriod - количество нервных срывов на временной период  
+    OnePerDay - раз в день  
+    SeveralPerWeek - несколько раз в неделю  
+    OnePerWeek - раз в неделю  
+    SeveralPerMonth - несколько раз в месяц  
+    OnePerMonth - раз в неделю  
+    SeveralPerYear - несколько раз в год  
+    Rare - реже раза в год  
+  ChronicWeak - есть ли хронические болези  
+  Earning - прибыль в месяц  
+    less_than_15 - менее 15 тыс. руб  
+    from_15_to_30 - от 15 до 30 тыс. руб  
+    from_30_to_60 - от 30 до 60 тыс. руб  
+    greater_than_60 - более 60 тыс. руб  
+  PersonalDisturbance - результаты теста Спилберга-Ханина по личностной тревоге  
+Зависимой переменной выступает IsDisturbed - чувствует ли человек тревогу  
+  
+Выведем и опишем базовые статистические показатели выборки:  
+## Age
+```{r}
+summ <- summary(finished_data$Age)
+summ
+```
+Наименьшим возрастом в выборке является 18 лет.  
+Наибольшим возрастом в выборке является 24 года.  
+Средний возраст опрошенных является 20 лет 7-8 месяцев.  
+Четверть опрошенных младше или являются 20-летними.  
+Половина опрошенных младше или являются 21-летними.  
+Четверть опрошенных старше или являются 22-летними.  
+```{r}
+hist(finished_data$Age)
+```
+## Sex
+```{r}
+summ <- summary(finished_data$Sex)
+summ
+```
+Из опрошенных женщин - 25, мужчин - 22  
+```{r}
+pie(c(summ[["Ж"]], summ[["М"]]), labels=c("Ж", "М"))
+```
+## IsStudying
+```{r}
+summ <- summary(finished_data$IsStudying)
+summ
+```
+Обучающихся из опрошенных 41, необучающихся 6
+```{r}
+pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
+```
+## IsWorking
+```{r}
+summ <- summary(finished_data$IsWorking)
+summ
+```
+Работающих из опрошенных 21, необчающихся - 26
+```{r}
+pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
+```
+## Music
+```{r}
+summ <- summary(finished_data$Music)
+summ
+```
+Как видим, классическую музыку стоит 1 человек из выборки, лёгкую - 6, умеренную - 8, меломанов - 32.
+```{r}
+pie(c(summ[["Classic"]], summ[["Light"]], summ[["Middle"]], summ[["Meloman"]]), c("Classic", "Light", "Middle", "Meloman"))
+```
+## FreeTime
+```{r}
+summ <- summary(finished_data$FreeTime)
+summ
+```
+Минимальное свободное времяя в выборке - 0 минут, максимальное - 400 минут.  
+У четверти опрошенных не более 120 минут свободного времени, у половины - не более 180. У четверти опрошенных не менее 300 минут свободного времени.  
+В среднем на каждого опрошенного приходится 214.7 минут свободного времени.  
+```{r}
+hist(summ)
+```
+## SleepTime
+```{r}
+summ <- summary(finished_data$SleepTime)
+summ
+```
+Минимальное время сна в выборке - 5 часов, максимальное 10.  
+У четверти опрошенных не более 6 часов отводится на сон, у половины - не более 7. У четверти опрошенных - не менее 8 часов.  
+В среднем каждый опрошенный отводит на сон 7 часов 12 минут.  
+```{r}
+hist(finished_data$SleepTime)
+```
+### Проверка статистической связи
+Проверим нет ли связи между независимыми и зависимой переменными. Для этого будем использовать:
+  Коэффициент взаимной сопряженности Пирсона - показывает степень стохастической связи между дихотомической переменной и категориальной с несколькими категориями.  
+  Биссериальный коэффициент корреляции - показывает степень стохастической связи между дихотомической переменной и переменной, измеряемой некоторой сильной шкалой  
+```{r коэффициент вазимной сопряжённости Пирсона}
+get_fi_sqr <- function(tbl)
+{
+  row_param <- c()
+  for(i in 1:length(tbl[, 1]))
+  {
+    row_param[i] <- sum(tbl[i, ])
+  }
+  
+  col_param <- c()
+  for(i in 1:length(tbl[1, ]))
+  {
+    col_param[i] <- sum(tbl[, i])
+  }
+  
+  fi <- 0
+  for (i in 1:length(tbl[, 1]))
+  {
+    tempFi <- 0
+    for (j in 1:length(tbl[1, ]))
+    {
+      tempFi <- tempFi + tbl[i, j]**2 / col_param[j]
+    }
+    
+    fi <- fi + tempFi / row_param[i]
+  }
+  
+  return (fi - 1)
+}
+
+library('tibble')
+get_chisq <- function(tbl)
+{
+  row_param <- c()
+  for(i in 1:length(tbl[, 1]))
+  {
+    row_param[i] <- sum(tbl[i, ])
+  }
+  
+  col_param <- c()
+  for(i in 1:length(tbl[1, ]))
+  {
+    col_param[i] <- sum(tbl[, i])
+  }
+  sum_df <- sum(tbl)
+  
+  ar <- data.frame(matrix(ncol=length(tbl[1, ]), nrow=0))
+  for (i in 1:length(tbl[, 1]))
+  {
+    v <- c()
+    for (j in 1:length(tbl[1, ]))
+    {
+      v[j] <- row_param[i] * col_param[j] / sum_df
+    }
+    
+    ar <- rbind(ar, v)
+  }
+  
+  chisq <- 0
+  for (i in 1:length(tbl[, 1]))
+  {
+    for (j in 1:length(tbl[1, ]))
+    {
+      chisq <- chisq + (tbl[i, j] - ar[i, j])**2 / ar[i, j]
+    }
+  }
+  
+  return(chisq)
+}
+
+pearson.contingence <- function(tbl, n)
+{
+  fi_sqr <- get_fi_sqr(tbl)
+  cont <- (sqrt(fi_sqr/(1 + fi_sqr)))
+  chisq_actual <- get_chisq(tbl)
+  chisq_crit <- qchisq(0.05, n-1)
+  return(data.frame(PearsonsContingence=c(cont), Chi_Sq_obs=c(chisq_actual), Chi_Sq_table=c(chisq_crit), IsNullHypotesisTrue=c(chisq_actual > chisq_crit)))
+}
+```
+```{r бисериальный коэффициент корреляции}
+get_biser_coeff_abs <- function(absolute_col, binary_col)
+{
+  N <- length(absolute_col)
+  df <- data.frame(Absolute=absolute_col, Binary=binary_col)
+  factors <- levels(binary_col)
+  st_d <- sd(absolute_col)
+  
+  x1 <- subset(df, Binary == factors[1])
+  n1 <- length(x1$Absolute)
+  m1 <- mean(x1$Absolute)
+  
+  x2 <- subset(df, Binary == factors[2])
+  n2 <- length(x2$Absolute)
+  m2 <- mean(x2$Absolute)
+  
+  bis_coeff <- (m2 - m1) / st_d * sqrt(n1 * n2 / (N * (N - 1)))
+  
+  t_obs <- abs(bis_coeff) * sqrt((N-2)/(1 - bis_coeff**2))
+  
+  t_tab <- abs(qt(0.05, N-2))
+  
+  result_df <- data.frame(BiesrialCoeff=c(bis_coeff), t_obs=c(t_obs), t_table=c(t_tab), IsNullHypotesisTrue=c(t_obs<t_tab))
+  return(result_df)
+}
+```
+```{r Коэффициент ассоциации и контингенции}
+assoc <- function(dataframe)
+{
+  ac <- dataframe[1, 1]
+  bc <- dataframe[1, 2]
+  ad <- dataframe[2, 1]
+  bd <- dataframe[2, 2]
+  return((ac*bd-bc*ad)/(ac*bd+bc*ad))
+}
+
+conting <- function(dataframe)
+{
+  c <- dataframe[1, 1] + dataframe[1, 2]
+  d <- dataframe[2, 1] + dataframe[2, 2]
+  a <- dataframe[1, 1] + dataframe[2, 1]
+  b <- dataframe[1, 2] + dataframe[2, 2]
+  
+  ac <- dataframe[1, 1]
+  bc <- dataframe[1, 2]
+  ad <- dataframe[2, 1]
+  bd <- dataframe[2, 2]
+  return ((ac*bd-bc*ad)/sqrt(a*b*c*d))
+}
+```
+  
+Найдём коэффициенты корреляции между каждой экзогенной и одной эндогенной переменной. Сразу обозначим, что уровень значимости 0.05.  
+## Age
+Н0 - связи нет  
+H1 - связь есть  
+```{r}
+age_dist <- get_biser_coeff_abs(finished_data$Age, finished_data$IsDisturbed)
+print(age_dist)
+```
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+## Sex
+Для нахождения связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(Sex, IsDisturbed))))
+```
+```{r}
+conting(table(subset(finished_data, select=c(Sex, IsDisturbed))))
+```
+Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.
+## IsStudying
+Для нахождение связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(IsStudying, IsDisturbed))))
+```
+```{r}
+conting(table(subset(finished_data, select=c(IsStudying, IsDisturbed))))
+```
+Точного ответа о связи между учёбой и тревожностью дать нельзя, так как коэффициент ассоциации по модулю больше 0.5, а коэффициент контингенции по модулю меньше 0.3.
+## IsWorking
+Для нахождения связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(IsWorking, IsDisturbed))))
+```
+```{r}
+conting(table(subset(finished_data, select=c(IsWorking, IsDisturbed))))
+```
+Связи между работой и тревожностью нет вовсе, так как коэффициент ассоциации по модулю меньше 0.5, а коэффициент контингенции по модулю меньше 0.3.  
+## Music
+Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
+H0 - связи нет  
+H1 - связь есть  
+```{r}
+contingence <- pearson.contingence(table(subset(finished_data, select=c(Music, IsDisturbed))), length(finished_data[, 1]))
+print(contingence)
+```
+Коэффициент равен 0.18, присутствует очень слабая стохастическая связь. Гипотеза об отсутствии связи отклоняется.
+## FreeTime
+Н0 - связи нет  
+H1 - связь есть  
+```{r}
+freeTime_dist <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$IsDisturbed)
+print(freeTime_dist)
+```
+Присутствует умеренная связь, |t наблюдаемое| больше |t табличного|, а значит нулевая гипотеза отвергается  
+## SleepTime
+Н0 - связи нет  
+H1 - связь есть  
+```{r}
+sleepTime_dist <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$IsDisturbed)
+print(sleepTime_dist)
+```
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+## NervousPeriod
+Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
+H0 - связи нет  
+H1 - связь есть  
+```{r}
+contingence <- pearson.contingence(table(subset(finished_data, select=c(NervousPeriod, IsDisturbed))), length(finished_data[, 1]))
+print(contingence)
+```
+Коэффициент равен 0.45, присутствует умеренная стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+```{r}
+nervous_period_mapping <- c('Rare' = 1, "SeveralPerYear" = 2, "OnePerMonth" = 3, 'SeveralPerMonth' = 4, 'OnePerWeek' = 5, 'SeveralPerWeek' = 6, 'OnePerDay' = 7)
+new_nervous_period <- nervous_period_mapping[as.factor(finished_data$NervousPeriod)]
+ranks <- rank(new_nervous_period)
+df_nerv_isDist <- data.frame(NervousPeriod=ranks, IsDisturbed=finished_data$IsDisturbed)
+disturbed_mean <- mean(subset(df_nerv_isDist, IsDisturbed=="Да")$NervousPeriod)
+notDisturbed_mean <- mean(subset(df_nerv_isDist, IsDisturbed=="Нет")$NervousPeriod)
+N <- length(finished_data$IsDisturbed)
+r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
+r_rb
+```
+Рангово бисериальный коэффициент же показал, что связи практически нет. Проверим гипотезу о отсутствии связи:
+Пусть H0 - коэффициент корреляции равен нулю  
+H1 - коэффициент корреляции отличен от нуля  
+Наблюдаемое значение:  
+```{r}
+abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+```
+Найдём табличное значение для df=n-2, a = 0.025:
+```{r}
+qt(0.025, N-2)
+```
+Как видим, табличное значение входит в довериательный интервал, а значит гипотеза об отсутствии связи принимается.
+## ChronicWeak
+Для нахождение связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(ChronicWeak, IsDisturbed))))
+```
+```{r}
+conting(table(subset(finished_data, select=c(ChronicWeak, IsDisturbed))))
+```
+Связи между наличием хронических болезней и тревожностью вероятнее всего нет, так как коэффициент ассоциации меньше 0.5, а коэффициент контингенции меньше 0.3.
+## Earning
+Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
+H0 - связи нет  
+H1 - связь есть  
+```{r}
+contingence <- pearson.contingence(table(subset(finished_data, select=c(Earning, IsDisturbed))), length(finished_data[, 1]))
+print(contingence)
+```
+Коэффициент равен 0.25, присутствует слабая стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+```{r}
+earning_mapping <- c('less_than_15' = 1, "from_15_to_30" = 2, "from_30_to_60" = 3, 'greater_than_60' = 4)
+new_earning <- earning_mapping[as.factor(finished_data$Earning)]
+ranks <- rank(new_earning)
+df_earn_isDist <- data.frame(Earning=ranks, IsDisturbed=finished_data$IsDisturbed)
+disturbed_mean <- mean(subset(df_earn_isDist, IsDisturbed=="Да")$Earning)
+notDisturbed_mean <- mean(subset(df_earn_isDist, IsDisturbed=="Нет")$Earning)
+N <- length(finished_data$IsDisturbed)
+r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
+r_rb
+```
+Рангово бисериальный коэффициент же показал, что связи практически нет. Проверим гипотезу о отсутствии связи:
+Пусть H0 - коэффициент корреляции равен нулю  
+H1 - коэффициент корреляции отличен от нуля  
+Наблюдаемое значение:  
+```{r}
+abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+```
+Найдём табличное значение для df=n-2, a = 0.025:
+```{r}
+qt(0.025, N-2)
+```
+Как видим, табличное значение входит в доверительный интервал, а значит гипотеза об отсутствии связи принимается.
+## PersonalDisturbance
+Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
+H0 - связи нет  
+H1 - связь есть  
+```{r}
+contingence <- pearson.contingence(table(subset(finished_data, select=c(PersonalDisturbance, IsDisturbed))), length(finished_data[, 1]))
+print(contingence)
+```
+Коэффициент равен 0.51, присутствует умеренная стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+```{r}
+pers_disturb_mapping <- c('low' = 1, "middle" = 2, "high" = 3)
+new_pers_disturb <- pers_disturb_mapping[as.factor(finished_data$PersonalDisturbance)]
+ranks <- rank(new_pers_disturb)
+df_pers_disturb_isDist <- data.frame(PersonalDisturbance=ranks, IsDisturbed=finished_data$IsDisturbed)
+disturbed_mean <- mean(subset(df_pers_disturb_isDist, IsDisturbed=="Да")$PersonalDisturbance)
+notDisturbed_mean <- mean(subset(df_pers_disturb_isDist, IsDisturbed=="Нет")$PersonalDisturbance)
+N <- length(finished_data$IsDisturbed)
+r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
+r_rb
+```
+Рангово бисериальный коэффициент же показал, что умеренная. Проверим гипотезу о отсутствии связи:
+Пусть H0 - коэффициент корреляции равен нулю  
+H1 - коэффициент корреляции отличен от нуля  
+Наблюдаемое значение:  
+```{r}
+abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+```
+Найдём табличное значение для df=n-2, a = 0.025:
+```{r}
+qt(0.025, N-2)
+```
+Модуль наблюдаемого значения больше модуля табличного, а значит гипотеза об отсутствии связи отклоняется.
+### Построение модели
+Так как в требованиях к ПО описано, что от ПО требуется выводить вероятность наличия тревоги, будем использовать логистическую регрессию. Экзогенными переменными у нас будут:  
+  Age - возраст  
+  Sex - пол  
+  IsStudying - обучается ли опрошенный где-либо  
+  IsWorking - работает ли опрошенный  
+  Music - какой тип музыки слушает слушает опрошенный  
+    Classic - классическая музыка  
+    Light - Лёгкая (поп, рэп)  
+    Middle - Умеренная (панк-рок, альтернативный рок, гранж, глэм)  
+    Meloman - опрошенный слушают несколько жанров  
+  Freetime - свободное от работы, учёбы и сна опрошенного, минуты  
+  SleepTime - время, отведённое опрошенным на сон, часы  
+  NervousPeriod - количество нервных срывов на временной период  
+    OnePerDay - раз в день  
+    SeveralPerWeek - несколько раз в неделю  
+    OnePerWeek - раз в неделю  
+    SeveralPerMonth - несколько раз в месяц  
+    OnePerMonth - раз в неделю  
+    SeveralPerYear - несколько раз в год  
+    Rare - реже раза в год  
+  ChronicWeak - есть ли хронические болези  
+  Earning - прибыль в месяц  
+    less_than_15 - менее 15 тыс. руб  
+    from_15_to_30 - от 15 до 30 тыс. руб  
+    from_30_to_60 - от 30 до 60 тыс. руб  
+    greater_than_60 - более 60 тыс. руб  
+  PersonalDisturbance - результаты теста Спилберга-Ханина по личностной тревоге  
+Эндогенной переменной будет IsDisturbed - чувствует ли тревогу человек.  
+Разобьём выборку на тренировочную и тестовую  
+```{r тренировочная и тестовая выборка}
+split <- sample.split(finished_data$IsDisturbed, SplitRatio=0.7)
+train <- subset(finished_data, split == TRUE)
+test <- subset(finished_data, split == FALSE)
+```
+Построим логит-, пробит- и гомпит-модель, чтобы выбрать наиболее подходящую.  
+Удалим признак NervousPeriod, так как он не даёт нам рассчитать модель.  
+## Логит-модель
+```{r}
+model_l_c <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + SleepTime + ChronicWeak + Earning + PersonalDisturbance,
+                 train,
+                 family = binomial("logit"))
+summary(model_l_c)
+```
+Как видим, нет ни одного значимого коэффициента.
+## Пробит-модель
+```{r}
+model_l_p <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + NervousPeriod + SleepTime + ChronicWeak + PersonalDisturbance,
+                 train,
+                 family = binomial("probit"))
+summary(model_l_p)
+```
+Есть всего один значимый коэффициент, который значим только уровне значимости 0.1.
+## Гомпит-модель
+```{r}
+model_l_g <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + SleepTime + Earning + ChronicWeak + PersonalDisturbance,
+                 train,
+                 family = binomial("cloglog"))
+summary(model_l_g)
+```
+Так же нет ни одного значимого коэффициента.
+
+
+
