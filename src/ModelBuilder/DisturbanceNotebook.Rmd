@@ -2,8 +2,9 @@
 title: "DisturbanceNotebook"
 date: "21 12 2021"
 output:
-  word_document: default
+  html_document: default
   pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -62,12 +63,18 @@ for(i in 1:length(spilbergHaninTestAnswers[,1]))
 ```{r Интерпретация данных теста Спилберга-Ханина}
 get_factor <- function(number)
 {
-  disturbance_factors <- c("low", "middle", "high")
-  estimate <- ifelse(number <= 30,
+  #disturbance_factors <- c("low", "middle", "high")
+  #estimate <- ifelse(number <= 30,
+  #                      disturbance_factors[1],
+  #                      ifelse(number >= 31 & number <= 45,
+  #                             disturbance_factors[2],
+  #                             disturbance_factors[3]))
+  #return(estimate)
+  
+  disturbance_factors <- c("low", "high")
+  estimate <- ifelse(number <= 38,
                         disturbance_factors[1],
-                        ifelse(number >= 31 & number <= 45,
-                               disturbance_factors[2],
-                               disturbance_factors[3]))
+                        disturbance_factors[2])
   return(estimate)
 }
 
@@ -142,7 +149,7 @@ for (i in 1:length(finished_data[,1]))
 {
   simple_earning[i] <- earning_mapping[as.character(finished_data$Earning[i])]
 }
-finished_data$Earning <- as.factor(simple_earning)
+finished_data$Earning <- factor(simple_earning, levels=c("less_than_15", "from_15_to_30", "from_30_to_60", "greater_than_60"))
 
 nervous_period_mapping <- c('Крайне редко' = 'Rare', 'Пару раз в год'='SeveralPerYear', 'Раз в месяц'='OnePerMonth', 'Пару раз в месяц'='SeveralPerMonth', 'Раз в неделю'='OnePerWeek', 'Пару раз в неделю'='SeveralPerWeek', 'Раз в день'='OnePerDay', 'Пару раз в день'='SeveralPerDay')
 simple_nervous_period = vector(length=length(finished_data[,1]))
@@ -150,7 +157,7 @@ for (i in 1:length(finished_data[,1]))
 {
   simple_nervous_period[i] <- nervous_period_mapping[as.character(finished_data$NervousPeriod[i])]
 }
-finished_data$NervousPeriod <- as.factor(simple_nervous_period)
+finished_data$NervousPeriod <- factor(simple_nervous_period, levels=c('Rare', "SeveralPerYear", "OnePerMonth", 'SeveralPerMonth', 'OnePerWeek', 'SeveralPerWeek', 'OnePerDay'))
 ```
 Выборка готова, можно приступить к построению модели.
   
@@ -185,6 +192,7 @@ finished_data$NervousPeriod <- as.factor(simple_nervous_period)
 Зависимой переменной выступает IsDisturbed - чувствует ли человек тревогу  
   
 Выведем и опишем базовые статистические показатели выборки:  
+  
 ## Age
 ```{r}
 summ <- summary(finished_data$Age)
@@ -199,6 +207,7 @@ summ
 ```{r}
 hist(finished_data$Age)
 ```
+  
 ## Sex
 ```{r}
 summ <- summary(finished_data$Sex)
@@ -208,6 +217,7 @@ summ
 ```{r}
 pie(c(summ[["Ж"]], summ[["М"]]), labels=c("Ж", "М"))
 ```
+  
 ## IsStudying
 ```{r}
 summ <- summary(finished_data$IsStudying)
@@ -217,6 +227,7 @@ summ
 ```{r}
 pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
 ```
+  
 ## IsWorking
 ```{r}
 summ <- summary(finished_data$IsWorking)
@@ -226,6 +237,7 @@ summ
 ```{r}
 pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
 ```
+  
 ## Music
 ```{r}
 summ <- summary(finished_data$Music)
@@ -235,6 +247,7 @@ summ
 ```{r}
 pie(c(summ[["Classic"]], summ[["Light"]], summ[["Middle"]], summ[["Meloman"]]), c("Classic", "Light", "Middle", "Meloman"))
 ```
+  
 ## FreeTime
 ```{r}
 summ <- summary(finished_data$FreeTime)
@@ -246,6 +259,7 @@ summ
 ```{r}
 hist(summ)
 ```
+  
 ## SleepTime
 ```{r}
 summ <- summary(finished_data$SleepTime)
@@ -257,11 +271,52 @@ summ
 ```{r}
 hist(finished_data$SleepTime)
 ```
+  
+## NervousPeriod
+```{r}
+summ <- summary(finished_data$NervousPeriod)
+summ
+```
+Как видим, раз в день срывается 1 человек, несколько раз в неделю 4, раз в неделю 2, раз несколько раз в месяц 9, раз в месяц 4, несколько раз в год 6 и реже раза в год 21.
+```{r}
+pie(c(summ[["OnePerDay"]], summ[["SeveralPerWeek"]], summ[["OnePerWeek"]], summ[["SeveralPerMonth"]], summ[["OnePerMonth"]], summ[["SeveralPerYear"]], summ[["Rare"]]), c("OnePerDay", "SeveralPerWeek", "OnePerWeek", "SeveralPerMonth", "OnePerMonth", "SeveralPerYear", "Rare"))
+```
+  
+## ChronicWeak
+```{r}
+summ <- summary(finished_data$ChronicWeak)
+summ
+```
+Имеющих хронические болезни из опрошенных 19, неимеющих - 28
+```{r}
+pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
+```
+  
+## Earning
+```{r}
+summ <- summary(finished_data$Earning)
+summ
+```
+Как видим, менее 15 тыс. руб получают 28 человек, от 15 до 30 тыс получают 12, от 30 до 60 тыс руб получают 4 и более 60 тыс руб получают 3 человека.
+```{r}
+pie(c(summ[["less_than_15"]], summ[["from_15_to_30"]], summ[["from_30_to_60"]], summ[["greater_than_60"]]), c("less_than_15", "from_15_to_30", "from_30_to_60", "greater_than_60"))
+```
+  
+## IsDisturbed
+```{r}
+summ <- summary(finished_data$IsDisturbed)
+summ
+```
+Опрошенных имеющих тревожность 28, не имеющих 19.
+```{r}
+pie(c(summ[["Да"]], summ[["Нет"]]), labels=c("Да", "Нет"))
+```
+  
 ### Проверка статистической связи
 Проверим нет ли связи между независимыми и зависимой переменными. Для этого будем использовать:
   Коэффициент взаимной сопряженности Пирсона - показывает степень стохастической связи между дихотомической переменной и категориальной с несколькими категориями.  
   Биссериальный коэффициент корреляции - показывает степень стохастической связи между дихотомической переменной и переменной, измеряемой некоторой сильной шкалой  
-```{r коэффициент вазимной сопряжённости Пирсона}
+```{r коэффициент взаимной сопряжённости Пирсона}
 get_fi_sqr <- function(tbl)
 {
   row_param <- c()
@@ -337,7 +392,7 @@ pearson.contingence <- function(tbl, n)
   cont <- (sqrt(fi_sqr/(1 + fi_sqr)))
   chisq_actual <- get_chisq(tbl)
   chisq_crit <- qchisq(0.05, n-1)
-  return(data.frame(PearsonsContingence=c(cont), Chi_Sq_obs=c(chisq_actual), Chi_Sq_table=c(chisq_crit), IsNullHypotesisTrue=c(chisq_actual > chisq_crit)))
+  return(data.frame(Coef=c(cont), Chi_Sq_obs=c(chisq_actual), Chi_Sq_table=c(chisq_crit), IsNullHypotesisTrue=c(chisq_actual > chisq_crit)))
 }
 ```
 ```{r бисериальный коэффициент корреляции}
@@ -362,8 +417,24 @@ get_biser_coeff_abs <- function(absolute_col, binary_col)
   
   t_tab <- abs(qt(0.05, N-2))
   
-  result_df <- data.frame(BiesrialCoeff=c(bis_coeff), t_obs=c(t_obs), t_table=c(t_tab), IsNullHypotesisTrue=c(t_obs<t_tab))
+  result_df <- data.frame(Coef=c(bis_coeff), t_obs=c(t_obs), t_table=c(t_tab), IsNullHypotesisTrue=c(t_obs<t_tab))
   return(result_df)
+}
+```
+```{r Рангово-биссериальный коэффициент}
+get_rank_biser_coef_pearson <- function(df, rank_col_name, bin_col_name, alpha=0.05)
+{
+  ranks <- rank(df[rank_col_name])
+  bin_levels <- levels(df[, bin_col_name])
+  rank_bin_df <- data.frame(Ranks=ranks, Bin=df[bin_col_name])
+  first_mean <- mean(subset(rank_bin_df, df[bin_col_name]==bin_levels[1])$Ranks)
+  second_mean <- mean(subset(rank_bin_df, df[bin_col_name]==bin_levels[2])$Ranks)
+  N <- length(ranks)
+  r_rb <- 2 / N * abs(first_mean - second_mean)
+  t_obs <- abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+  t_tab <- qt(alpha/2, N-2)
+  result_df <- data.frame(Coef=c(r_rb), ObservedT=t_obs, TableT=t_tab, IsNullHypotesisTrue=c(abs(t_obs)<abs(t_tab)))
+  return(result_df);
 }
 ```
 ```{r Коэффициент ассоциации и контингенции}
@@ -390,9 +461,181 @@ conting <- function(dataframe)
   return ((ac*bd-bc*ad)/sqrt(a*b*c*d))
 }
 ```
+```{r линейная корреляция Пирсона}
+get_pearson_cor <- function(first_col, second_col, alpha=0.05)
+{
+  corr <- cor(first_col, second_col)
+  n <- length(first_col)
+  t_obs <- corr * sqrt(n-2)/sqrt(1-corr**2)
+  t_tab <- qt(alpha/2, n-2)
+  result_df <- data.frame(Coef=c(corr), ObservedT=c(t_obs), TableT=c(t_tab), IsNullHypotesisTrue=c(t_obs<t_tab))
+  return(result_df)
+}
+```
+```{r ранговая корреляция Кендалла}
+get_kendall_cor <- function(first_col, second_col, alpha=0.05)
+{
+  corr <- cor(first_col, second_col, method=c("kendall"))
+  n <- length(first_col)
+  dt <- 2*(2*n+5)/(9*n*(n-1))
+  z_obs <- corr / sqrt(dt)
+  z_tab <- qnorm(1-alpha/2)
+  result_df <- data.frame(Coef=c(corr), ObservedT=c(z_obs), TableT=c(z_tab), IsNullHypotesisTrue=c(abs(z_obs)<z_tab))
+  return(result_df)
+}
+```
+
+```{r Заполн табл}
+get_val <- function(df)
+{
+  v <- ifelse(df$IsNullHypotesisTrue[1], 0, df$Coef[1])
+  return (v)
+}
+```
   
-Найдём коэффициенты корреляции между каждой экзогенной и одной эндогенной переменной. Сразу обозначим, что уровень значимости 0.05.  
+Зададим таблицу, в которой будут храниться данные о связи между переменными
+```{r}
+corr_matrix <- matrix(0, nrow = length(finished_data[1,]), ncol = length(finished_data[1,]));
+names <- colnames(finished_data)
+rownames(corr_matrix) <- names
+colnames(corr_matrix) <- names
+for (n in names)
+{
+  corr_matrix[n, n] <- 1
+}
+```
+  
 ## Age
+Найдём связь между перменной Age и остальными переменными  
+  
+# Sex
+Age - количественная переменная, Sex - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_Sex_corr <- get_biser_coeff_abs(finished_data$Age, finished_data$Sex)
+age_Sex_corr
+```
+Как можно заметить, есть средняя связь между возрастом опрошенных и их полом. Наблюдаемое t выходит за пределы доверительного интервала, значит гипотеза об отсутствии связи отклоняется.
+```{r}
+corr_matrix['Age', 'Sex'] = get_val(age_Sex_corr)
+corr_matrix['Sex', 'Age'] = get_val(age_Sex_corr)
+```
+  
+# IsStudying
+Age - количественная переменная, IsStudying - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_IsStudying_corr <- get_biser_coeff_abs(finished_data$Age, finished_data$IsStudying)
+age_IsStudying_corr
+```
+Как можно заметить, связи между возрастом опрошенных и тем, обучаются ли они, практически нет. Наблюдаемое t входит в пределы доверительного интервала, значит гипотеза об отсутствии связи принимается.
+```{r}
+corr_matrix['Age', 'IsStudying'] = get_val(age_IsStudying_corr)
+corr_matrix['IsStudying', 'Age'] = get_val(age_IsStudying_corr)
+```
+  
+# IsWorking
+Age - количественная переменная, IsWorking - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_IsWorking_corr <- get_biser_coeff_abs(finished_data$Age, finished_data$IsWorking)
+age_IsWorking_corr
+```
+Как можно заметить, есть небольшая связь между возрастом опрошенных и тем, работают ли они. Наблюдаемое t выходит за пределы доверительного интервала, значит гипотеза об отсутствии связи отклоняется
+```{r}
+corr_matrix['Age', 'IsWorking'] = get_val(age_IsWorking_corr)
+corr_matrix['IsWorking', 'Age'] = get_val(age_IsWorking_corr)
+```
+  
+# Music
+  
+# FreeTime
+Age и FreeTime - количественные переменные. Для нахождения связи будем использовать корреляцию Пирсона  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_FreeTime_corr <- get_pearson_cor(finished_data$Age, finished_data$FreeTime)
+age_FreeTime_corr
+```
+Как видим, между возрастом и свободным временем есть средняя степень связи. Наблюдаемое t выходит за пределы доверительного интервала, а значит нулевая гипотеза отклоняется  
+```{r}
+corr_matrix['Age', 'FreeTime'] = get_val(age_FreeTime_corr)
+corr_matrix['FreeTime', 'Age'] = get_val(age_FreeTime_corr)
+```
+  
+# SleepTime
+Age и SleepTime - количественные переменные. Для нахождения связи будем использовать корреляцию Пирсона  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_SleepTime_corr <- get_pearson_cor(finished_data$Age, finished_data$SleepTime)
+age_SleepTime_corr
+```
+Как видим, между возрастом и временем сна есть средняя степень связи. Наблюдаемое t выходит за пределы доверительного интервала, а значит нулевая гипотеза отклоняется  
+```{r}
+corr_matrix['Age', 'SleepTime'] = get_val(age_SleepTime_corr)
+corr_matrix['SleepTime', 'Age'] = get_val(age_SleepTime_corr)
+```
+  
+# NervousPeriod
+Age - количественная переменная и NervousPeriod - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_NervousPeriod_corr <- get_kendall_cor(finished_data$Age, as.numeric(finished_data$NervousPeriod))
+age_NervousPeriod_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t входит в доверительный интервал, а значит нулевая гипотеза принимается  
+```{r}
+corr_matrix['Age', 'NervousPeriod'] = get_val(age_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'Age'] = get_val(age_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+Age - количественная переменная, ChronicWeak - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_ChronicWeak_corr <- get_biser_coeff_abs(finished_data$Age, finished_data$ChronicWeak)
+age_ChronicWeak_corr
+```
+Как можно заметить, связи между возрастом опрошенных и тем, имеют ли они хронические болезни. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['Age', 'ChronicWeak'] = get_val(age_ChronicWeak_corr)
+corr_matrix['ChronicWeak', 'Age'] = get_val(age_ChronicWeak_corr)
+```
+  
+# Earning
+Age - количественная переменная и Earning - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+age_Earning_corr <- get_kendall_cor(finished_data$Age, as.numeric(finished_data$Earning))
+age_Earning_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t выходит за доверительный интервал, а значит нулевая гипотеза отвергается  
+```{r}
+corr_matrix['Age', 'Earning'] = get_val(age_Earning_corr)
+corr_matrix['Earning', 'Age'] = get_val(age_Earning_corr)
+```
+  
+# PersonalDisturbance
+Н0 - связи нет  
+H1 - связь есть  
+```{r}
+age_PersonalDisturbance_corr <- get_biser_coeff_abs(finished_data$Age, finished_data$PersonalDisturbance)
+age_PersonalDisturbance_corr
+```
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+```{r}
+corr_matrix['Age', 'PersonalDisturbance'] = get_val(age_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'Age'] = get_val(age_PersonalDisturbance_corr)
+```
+  
+# IsDisturbed
 Н0 - связи нет  
 H1 - связь есть  
 ```{r}
@@ -400,163 +643,865 @@ age_dist <- get_biser_coeff_abs(finished_data$Age, finished_data$IsDisturbed)
 print(age_dist)
 ```
 Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+```{r}
+corr_matrix['Age', 'IsDisturbed'] = get_val(age_dist)
+corr_matrix['IsDisturbed', 'Age'] = get_val(age_dist)
+```
+  
 ## Sex
+  
+# IsStudying
+Sex - дихотомическая, IsStudying - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+sex_IsStudying_df <- table(data.frame(finished_data$Sex, finished_data$IsStudying))
+sex_IsStudying_assoc <- assoc(sex_IsStudying_df)
+sex_IsStudying_assoc
+```
+Коэффициент ассоциации слишком мал. Коэффициент контингенции вычислять смысла нет. Связи между факторами обучения и пола практическ3и нет.  
+```{r}
+corr_matrix['Sex', 'IsStudying'] = sex_IsStudying_assoc
+corr_matrix['IsStudying', 'Sex'] = sex_IsStudying_assoc
+```
+  
+# IsWorking
+Sex - дихотомическая, IsWorking - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+sex_IsWorking_df <- table(data.frame(finished_data$Sex, finished_data$IsWorking))
+sex_IsWorking_assoc <- assoc(sex_IsWorking_df)
+sex_IsWorking_assoc
+```
+Коэффициент ассоциации слишком мал. Коэффициент контингенции вычислят смысла нет. Связи между факторами работы и пола практически нет.  
+```{r}
+corr_matrix['Sex', 'IsWorking'] = sex_IsWorking_assoc
+corr_matrix['IsWorking', 'Sex'] = sex_IsWorking_assoc
+```
+  
+  
+# Music
+Sex - дихотомическая, Music - номинальная. Для измерения степени связи между переменными будем использовать коэффициент взаимной сопряжённости.  
+H0 - связи нет.    
+H1 - связь есть.
+```{r}
+sex_Music_df <- data.frame(finished_data$Sex, finished_data$Music)
+sex_Music_corr <- pearson.contingence(table(sex_Music_df), length(sex_Music_df[,1]))
+sex_Music_corr
+```
+Между полом и прослушиванием музыки есть слабая связь. Наблюдаемое значение хи-2 меньше табличного, а значит нулевая гипотеза отвергается.  
+```{r}
+corr_matrix['Sex', 'Music'] = get_val(sex_Music_corr)
+corr_matrix['Music', 'Sex'] = get_val(sex_Music_corr)
+```
+  
+# FreeTime
+FreeTime - количественная переменная, Sex - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sex_FreeTime_corr <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$Sex)
+sex_FreeTime_corr
+```
+Как можно заметить, связь между полом опрошенных и свободным временем слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['Sex', 'FreeTime'] = get_val(sex_FreeTime_corr)
+corr_matrix['FreeTime', 'Sex'] = get_val(sex_FreeTime_corr)
+```
+  
+# SleepTime
+SleepTime - количественная переменная, Sex - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sex_SleepTime_corr <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$Sex)
+sex_SleepTime_corr
+```
+Как можно заметить, связь между полом опрошенных и временем сна слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Sex', 'SleepTime'] = get_val(sex_SleepTime_corr)
+corr_matrix['SleepTime', 'Sex'] = get_val(sex_SleepTime_corr)
+```
+  
+# NervousPeriod
+NervousPeriod - ранговая переменная, Sex - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sex_NervousPeriod_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "Sex")
+sex_NervousPeriod_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Sex', 'NervousPeriod'] = get_val(sex_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'Sex'] = get_val(sex_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+Sex - дихотомическая, ChronicWeak - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+sex_ChronicWeak_df <- table(data.frame(finished_data$Sex, finished_data$ChronicWeak))
+sex_ChronicWeak_assoc <- assoc(sex_ChronicWeak_df)
+sex_ChronicWeak_assoc
+```
+Коэффициент ассоциации слишком мал. Коэффициент контингенции вычислят смысла нет. Связи между факторами работы и пола практически нет.  
+```{r}
+corr_matrix['Sex', 'ChronicWeak'] = sex_ChronicWeak_assoc
+corr_matrix['ChronicWeak', 'Sex'] = sex_ChronicWeak_assoc
+```
+  
+# Earning
+Earning - ранговая переменная, Sex - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sex_Earning_corr <- get_rank_biser_coef_pearson(finished_data, "Earning", "Sex")
+sex_Earning_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит за доверительный интервал, значит гипотеза об отсутствии связи принимается  
+  
+# IsDisturbed
 Для нахождения связи применим коэффициенты ассоциации и контингенции
 ```{r}
 assoc(table(subset(finished_data, select=c(Sex, IsDisturbed))))
 ```
 ```{r}
-conting(table(subset(finished_data, select=c(Sex, IsDisturbed))))
+sex_IsDisturbed_conting <- conting(table(subset(finished_data, select=c(Sex, IsDisturbed))))
+sex_IsDisturbed_conting
 ```
-Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.
+Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.  
+```{r}
+corr_matrix['Sex', 'IsDisturbed'] = sex_IsDisturbed_conting
+corr_matrix['IsDisturbed', 'Sex'] = sex_IsDisturbed_conting
+```
+  
+# PersonalDisturbance
+Для нахождения связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(Sex, PersonalDisturbance))))
+```
+```{r}
+sex_PersonalDisturbance_conting <- conting(table(subset(finished_data, select=c(Sex, PersonalDisturbance))))
+sex_PersonalDisturbance_conting
+```
+Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.  
+```{r}
+corr_matrix['Sex', 'PersonalDisturbance'] = sex_PersonalDisturbance_conting
+corr_matrix['PersonalDisturbance', 'Sex'] = sex_PersonalDisturbance_conting
+```
+  
 ## IsStudying
+  
+# IsWorking
+IsStudying - дихотомическая, IsWorking - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+isStudying_IsWorking_df <- table(data.frame(finished_data$IsStudying, finished_data$IsWorking))
+assoc(isStudying_IsWorking_df)
+```
+Коэффициент ассоциации близок к 0.5. Коэффициент контингенции:
+```{r}
+isStudying_IsWorking_cont <- conting(isStudying_IsWorking_df)
+isStudying_IsWorking_cont
+```
+Коэффициент контингенции меньше 0.3, а значит связи между факторами обучения и работы нет
+```{r}
+corr_matrix['IsStudying', 'IsWorking'] = isStudying_IsWorking_cont
+corr_matrix['IsWorking', 'IsStudying'] = isStudying_IsWorking_cont
+```
+  
+# Music
+IsStudying - дихотомическая, Music - номинальная. Для измерения степени связи между переменными будем использовать коэффициент взаимной сопряжённости.  
+H0 - связи нет.    
+H1 - связь есть.
+```{r}
+isStudying_Music_df <- data.frame(finished_data$IsStudying, finished_data$Music)
+isStudying_Music_corr <- pearson.contingence(table(isStudying_Music_df), length(isStudying_Music_df[,1]))
+isStudying_Music_corr
+```
+Между фактором обучения и прослушиванием музыки есть слабая связь. Наблюдаемое значение хи-2 меньше табличного, а значит нулевая гипотеза отвергается.
+```{r}
+corr_matrix['IsStudying', 'Music'] = get_val(isStudying_Music_corr)
+corr_matrix['Music', 'IsStudying'] = get_val(isStudying_Music_corr)
+```
+  
+# FreeTime
+FreeTime - количественная переменная, IsStudying - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isStudying_FreeTime_corr <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$IsStudying)
+isStudying_FreeTime_corr
+```
+Как можно заметить, связь между полом опрошенных и временем сна слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsStudying', 'FreeTime'] = get_val(isStudying_FreeTime_corr)
+corr_matrix['FreeTime', 'IsStudying'] = get_val(isStudying_FreeTime_corr)
+```
+  
+# SleepTime
+SleepTime - количественная переменная, IsStudying - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isStudying_SleepTime_corr <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$IsStudying)
+isStudying_SleepTime_corr
+```
+Как можно заметить, связь между полом опрошенных и временем сна слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsStudying', 'SleepTime'] = get_val(isStudying_SleepTime_corr)
+corr_matrix['SleepTime', 'IsStudying'] = get_val(isStudying_SleepTime_corr)
+```
+  
+# NervousPeriod
+NervousPeriod - ранговая переменная, IsStudying - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isStudying_NervousPeriod_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "IsStudying")
+isStudying_NervousPeriod_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов средняя Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['IsStudying', 'NervousPeriod'] = get_val(isStudying_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'IsStudying'] = get_val(isStudying_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+IsStudying - дихотомическая, ChronicWeak - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+isStudying_ChronicWeak_df <- table(data.frame(finished_data$IsStudying, finished_data$ChronicWeak))
+assoc(isStudying_ChronicWeak_df)
+```
+Коэффициент ассоциации по модулю больше 0.5. Коэффициент контингенции:
+```{r}
+isStudying_ChronicWeak_cont <- conting(isStudying_ChronicWeak_df)
+isStudying_ChronicWeak_cont
+```
+Коэффициент контингенции меньше 0.3, а значит степень связи между факторами не подтверждена  
+```{r}
+corr_matrix['IsStudying', 'ChronicWeak'] = isStudying_ChronicWeak_cont
+corr_matrix['ChronicWeak', 'IsStudying'] = isStudying_ChronicWeak_cont
+```
+  
+# Earning
+Earning - ранговая переменная, IsStudying - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isStudying_Earning_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "Earning")
+isStudying_Earning_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsStudying', 'Earning'] = get_val(isStudying_Earning_corr)
+corr_matrix['Earning', 'IsStudying'] = get_val(isStudying_Earning_corr)
+```
+  
+# IsDisturbed
 Для нахождение связи применим коэффициенты ассоциации и контингенции
 ```{r}
 assoc(table(subset(finished_data, select=c(IsStudying, IsDisturbed))))
 ```
 ```{r}
-conting(table(subset(finished_data, select=c(IsStudying, IsDisturbed))))
+isStudying_IsDisturbed_cont <- conting(table(subset(finished_data, select=c(IsStudying, IsDisturbed))))
 ```
-Точного ответа о связи между учёбой и тревожностью дать нельзя, так как коэффициент ассоциации по модулю больше 0.5, а коэффициент контингенции по модулю меньше 0.3.
+Точного ответа о связи между учёбой и тревожностью дать нельзя, так как коэффициент ассоциации по модулю больше 0.5, а коэффициент контингенции по модулю меньше 0.3.  
+```{r}
+corr_matrix['IsStudying', 'IsDisturbed'] = isStudying_IsDisturbed_cont
+corr_matrix['IsDisturbed', 'IsStudying'] = isStudying_IsDisturbed_cont
+```
+  
+# PersonalDisturbance
+Для нахождение связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(IsStudying, PersonalDisturbance))))
+```
+```{r}
+isStudying_PersonalDisturbance_cont <- conting(table(subset(finished_data, select=c(IsStudying, PersonalDisturbance))))
+```
+Точного ответа о связи между учёбой и тревожностью дать нельзя, так как коэффициент ассоциации по модулю больше 0.5, а коэффициент контингенции по модулю меньше 0.3.  
+```{r}
+corr_matrix['IsStudying', 'PersonalDisturbance'] = isStudying_PersonalDisturbance_cont
+corr_matrix['PersonalDisturbance', 'IsStudying'] = isStudying_PersonalDisturbance_cont
+```
+  
 ## IsWorking
+  
+# Music
+IsWorking - дихотомическая, Music - номинальная. Для измерения степени связи между переменными будем использовать коэффициент взаимной сопряжённости.  
+H0 - связи нет.    
+H1 - связь есть.
+```{r}
+isWorking_Music_df <- data.frame(finished_data$IsWorking, finished_data$Music)
+isWorking_Music_corr <- pearson.contingence(table(isWorking_Music_df), length(isWorking_Music_df[,1]))
+isWorking_Music_corr
+```
+Между фактором обучения и прослушиванием музыки есть слабая связь. Наблюдаемое значение хи-2 меньше табличного, а значит нулевая гипотеза отвергается.
+```{r}
+corr_matrix['IsWorking', 'Music'] = get_val(isWorking_Music_corr)
+corr_matrix['Music', 'IsWorking'] = get_val(isWorking_Music_corr)
+```
+  
+# FreeTime
+FreeTime - количественная переменная, IsWorking - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isWorking_FreeTime_corr <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$IsWorking)
+isWorking_FreeTime_corr
+```
+Как можно заметить, связь между полом опрошенных и временем сна практически отсутствует. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsWorking', 'FreeTime'] = get_val(isWorking_FreeTime_corr)
+corr_matrix['FreeTime', 'IsWorking'] = get_val(isWorking_FreeTime_corr)
+```
+  
+# SleepTime
+SleepTime - количественная переменная, IsWorking - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isWorking_SleepTime_corr <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$IsWorking)
+isWorking_SleepTime_corr
+```
+Как можно заметить, связь между полом опрошенных и временем сна слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsWorking', 'SleepTime'] = get_val(isWorking_SleepTime_corr)
+corr_matrix['SleepTime', 'IsWorking'] = get_val(isWorking_SleepTime_corr)
+```
+  
+# NervousPeriod
+NervousPeriod - ранговая переменная, IsWorking - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isWorking_NervousPeriod_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "IsWorking")
+isWorking_NervousPeriod_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов практически отсутствует. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['IsWorking', 'NervousPeriod'] = get_val(isWorking_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'IsWorking'] = get_val(isWorking_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+IsWorking - дихотомическая, ChronicWeak - дихотимческая. Для измерения степени связи между переменными будем использовать коэффициенты ассоциации и контингенции.  
+Коэффициент ассоциации:
+```{r}
+isWorking_ChronicWeak_df <- table(data.frame(finished_data$IsWorking, finished_data$ChronicWeak))
+assoc(isWorking_ChronicWeak_df)
+```
+Коэффициент ассоциации по модулю чуть меньше 0.5. Коэффициент контингенции:
+```{r}
+isWorking_ChronicWeak_cont <- conting(isWorking_ChronicWeak_df)
+```
+Коэффициент контингенции меньше 0.3, а значит связи между факторами нет  
+```{r}
+corr_matrix['IsWorking', 'ChronicWeak'] = isWorking_ChronicWeak_cont
+corr_matrix['ChronicWeak', 'IsWorking'] = isWorking_ChronicWeak_cont
+```
+  
+# Earning
+Earning - ранговая переменная, IsWorking - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+isWorking_Earning_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "Earning")
+isWorking_Earning_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['IsWorking', 'Earning'] = get_val(isWorking_Earning_corr)
+corr_matrix['Earning', 'IsWorking'] = get_val(isWorking_Earning_corr)
+```
+# IsDisturbed
 Для нахождения связи применим коэффициенты ассоциации и контингенции
 ```{r}
 assoc(table(subset(finished_data, select=c(IsWorking, IsDisturbed))))
 ```
 ```{r}
-conting(table(subset(finished_data, select=c(IsWorking, IsDisturbed))))
+isWorking_IsDisturbed_cont <- conting(table(subset(finished_data, select=c(IsWorking, IsDisturbed))))
 ```
 Связи между работой и тревожностью нет вовсе, так как коэффициент ассоциации по модулю меньше 0.5, а коэффициент контингенции по модулю меньше 0.3.  
+```{r}
+corr_matrix['IsWorking', 'IsDisturbed'] = isWorking_IsDisturbed_cont
+corr_matrix['IsDisturbed', 'IsWorking'] = isWorking_IsDisturbed_cont
+```
+  
+# PersonalDisturbance
+Для нахождения связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(IsWorking, PersonalDisturbance))))
+```
+```{r}
+isWorking_PersonalDisturbance_cont <- conting(table(subset(finished_data, select=c(IsWorking, PersonalDisturbance))))
+```
+Связи между работой и тревожностью нет вовсе, так как коэффициент ассоциации по модулю меньше 0.5, а коэффициент контингенции по модулю меньше 0.3.  
+```{r}
+corr_matrix['IsWorking', 'PersonalDisturbance'] = isWorking_PersonalDisturbance_cont
+corr_matrix['PersonalDisturbance', 'IsWorking'] = isWorking_PersonalDisturbance_cont
+```
+  
 ## Music
-Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
-H0 - связи нет  
+  
+# FreeTime
+  
+# SleepTime
+  
+# NervousPeriod
+NervousPeriod - ранговая переменная, Music - категориальная. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+music_NervousPeriod_corr <- get_rank_biser_coef_pearson(finished_data, "Music", "NervousPeriod")
+music_NervousPeriod_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Music', 'NervousPeriod'] = get_val(music_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'Music'] = get_val(music_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+ChronicWeak - дихотомическая, Music - категориальная. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+music_ChronicWeak_corr <- get_rank_biser_coef_pearson(finished_data, "Music", "ChronicWeak")
+music_ChronicWeak_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Music', 'ChronicWeak'] = get_val(music_ChronicWeak_corr)
+corr_matrix['ChronicWeak', 'Music'] = get_val(music_ChronicWeak_corr)
+```
+  
+# Earning
+Earning - ранговая переменная, Music - категориальная. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+music_Earning_corr <- get_rank_biser_coef_pearson(finished_data, "Music", "Earning")
+music_Earning_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Music', 'Earning'] = get_val(music_Earning_corr)
+corr_matrix['Earning', 'Music'] = get_val(music_Earning_corr)
+```
+  
+# IsDisturbed
+IsDisturbed - дихотомическая, Music - категориальная. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+music_IsDisturbed_corr <- get_rank_biser_coef_pearson(finished_data, "Music", "IsDisturbed")
+music_IsDisturbed_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Music', 'IsDisturbed'] = get_val(music_IsDisturbed_corr)
+corr_matrix['IsDisturbed', 'Music'] = get_val(music_IsDisturbed_corr)
+```
+  
+# PersonalDisturbance
+PersonalDisturbance - ранговая, Music - категориальная. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+music_PersonalDisturbance_corr <- get_rank_biser_coef_pearson(finished_data, "Music", "PersonalDisturbance")
+music_PersonalDisturbance_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['Music', 'PersonalDisturbance'] = get_val(music_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'Music'] = get_val(music_PersonalDisturbance_corr)
+```
+  
+## FreeTime
+  
+# SleepTime
+FreeTime и SleepTime - количественные переменные. Для нахождения связи будем использовать корреляцию Пирсона  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+freeTime_SleepTime_corr <- get_pearson_cor(finished_data$FreeTime, finished_data$SleepTime)
+freeTime_SleepTime_corr
+```
+Как видим, между возрастом и временем сна есть средняя степень связи. Наблюдаемое t выходит за пределы доверительного интервала, а значит нулевая гипотеза отклоняется  
+```{r}
+corr_matrix['FreeTime', 'SleepTime'] = get_val(freeTime_SleepTime_corr)
+corr_matrix['SleepTime', 'FreeTime'] = get_val(freeTime_SleepTime_corr)
+```
+  
+# NervousPeriod
+FreeTime - количественная переменная и NervousPeriod - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+freeTime_NervousPeriod_corr <- get_kendall_cor(finished_data$FreeTime, as.numeric(finished_data$NervousPeriod))
+freeTime_NervousPeriod_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t выходит за доверительный интервал, а значит нулевая гипотеза отвергается  
+```{r}
+corr_matrix['FreeTime', 'NervousPeriod'] = get_val(freeTime_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'FreeTime'] = get_val(freeTime_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+FreeTime - количественная переменная, ChronicWeak - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+freeTime_ChronicWeak_corr <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$ChronicWeak)
+freeTime_ChronicWeak_corr
+```
+Как можно заметить, связи между возрастом опрошенных и тем, имеют ли они хронические болезни. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['FreeTime', 'ChronicWeak'] = get_val(freeTime_ChronicWeak_corr)
+corr_matrix['ChronicWeak', 'FreeTime'] = get_val(freeTime_ChronicWeak_corr)
+```
+  
+# Earning
+FreeTime - количественная переменная и Earning - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+freeTime_Earning_corr <- get_kendall_cor(finished_data$FreeTime, as.numeric(finished_data$Earning))
+freeTime_Earning_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t выходит за доверительный интервал, а значит нулевая гипотеза отвергается  
+```{r}
+corr_matrix['FreeTime', 'Earning'] = get_val(freeTime_Earning_corr)
+corr_matrix['Earning', 'FreeTime'] = get_val(freeTime_Earning_corr)
+```
+  
+# PersonalDisturbance
+Н0 - связи нет  
 H1 - связь есть  
 ```{r}
-contingence <- pearson.contingence(table(subset(finished_data, select=c(Music, IsDisturbed))), length(finished_data[, 1]))
-print(contingence)
+freeTime_PersonalDisturbance_corr <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$PersonalDisturbance)
+freeTime_PersonalDisturbance_corr
 ```
-Коэффициент равен 0.18, присутствует очень слабая стохастическая связь. Гипотеза об отсутствии связи отклоняется.
-## FreeTime
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+```{r}
+corr_matrix['FreeTime', 'PersonalDisturbance'] = get_val(freeTime_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'FreeTime'] = get_val(freeTime_PersonalDisturbance_corr)
+```
+  
+# IsDisturbed
 Н0 - связи нет  
 H1 - связь есть  
 ```{r}
 freeTime_dist <- get_biser_coeff_abs(finished_data$FreeTime, finished_data$IsDisturbed)
 print(freeTime_dist)
 ```
-Присутствует умеренная связь, |t наблюдаемое| больше |t табличного|, а значит нулевая гипотеза отвергается  
+Как видим |t наблюдаемое| больше |t табличного|, а значит нулевая гипотеза отвергается  
+```{r}
+corr_matrix['FreeTime', 'IsDisturbed'] = get_val(freeTime_dist)
+corr_matrix['IsDisturbed', 'FreeTime'] = get_val(freeTime_dist)
+```
+  
 ## SleepTime
+  
+# NervousPeriod
+SleepTime - количественная переменная и NervousPeriod - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sleepTime_NervousPeriod_corr <- get_kendall_cor(finished_data$SleepTime, as.numeric(finished_data$NervousPeriod))
+sleepTime_NervousPeriod_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t выходит за доверительный интервал, а значит нулевая гипотеза отвергается  
+```{r}
+corr_matrix['SleepTime', 'NervousPeriod'] = get_val(sleepTime_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'SleepTime'] = get_val(sleepTime_NervousPeriod_corr)
+```
+  
+# ChronicWeak
+SleepTime - количественная переменная, ChronicWeak - дихотомическая. Найдём степень связи при помощи бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sleepTime_ChronicWeak_corr <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$ChronicWeak)
+sleepTime_ChronicWeak_corr
+```
+Как можно заметить, связи между возрастом опрошенных и тем, имеют ли они хронические болезни. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
+```{r}
+corr_matrix['SleepTime', 'ChronicWeak'] = get_val(sleepTime_ChronicWeak_corr)
+corr_matrix['ChronicWeak', 'SleepTime'] = get_val(sleepTime_ChronicWeak_corr)
+```
+  
+# Earning
+SleepTime - количественная переменная и Earning - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+sleepTime_Earning_corr <- get_kendall_cor(finished_data$SleepTime, as.numeric(finished_data$Earning))
+sleepTime_Earning_corr
+```
+Как видим, между возрастом и временем сна есть слабая степень связи. Наблюдаемое t входит в доверительный интервал, а значит нулевая гипотеза принимается  
+```{r}
+corr_matrix['SleepTime', 'Earning'] = get_val(sleepTime_Earning_corr)
+corr_matrix['Earning', 'SleepTime'] = get_val(sleepTime_Earning_corr)
+```
+  
+# PersonalDisturbance
+Н0 - связи нет  
+H1 - связь есть  
+```{r}
+sleepTime_PersonalDisturbance_corr <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$PersonalDisturbance)
+sleepTime_PersonalDisturbance_corr
+```
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+```{r}
+corr_matrix['SleepTime', 'PersonalDisturbance'] = get_val(sleepTime_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'SleepTime'] = get_val(sleepTime_PersonalDisturbance_corr)
+```
+  
+# IsDisturbed
 Н0 - связи нет  
 H1 - связь есть  
 ```{r}
 sleepTime_dist <- get_biser_coeff_abs(finished_data$SleepTime, finished_data$IsDisturbed)
-print(sleepTime_dist)
+sleepTime_dist
 ```
-Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается.  
+Как видим |t наблюдаемое| меньше |t табличного|, а значит нулевая гипотеза принимается  
+```{r}
+corr_matrix['SleepTime', 'IsDisturbed'] = get_val(sleepTime_dist)
+corr_matrix['IsDisturbed', 'SleepTime'] = get_val(sleepTime_dist)
+```
+  
 ## NervousPeriod
-Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
-H0 - связи нет  
-H1 - связь есть  
+  
+# ChronicWeak
+ChronicWeak - дихотомическая, NervousPeriod - номинальная. Для измерения степени связи между переменными будем использовать коэффициент взаимной сопряжённости.  
+H0 - связи нет.    
+H1 - связь есть.
 ```{r}
-contingence <- pearson.contingence(table(subset(finished_data, select=c(NervousPeriod, IsDisturbed))), length(finished_data[, 1]))
-print(contingence)
+chronicWeak_NervousPeriod_df <- data.frame(finished_data$ChronicWeak, finished_data$NervousPeriod)
+chronicWeak_NervousPeriod_corr <- pearson.contingence(table(chronicWeak_NervousPeriod_df), length(chronicWeak_NervousPeriod_df[,1]))
+chronicWeak_NervousPeriod_corr
 ```
-Коэффициент равен 0.45, присутствует умеренная стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+Между фактором обучения и прослушиванием музыки есть средняя связь. Наблюдаемое значение хи-2 меньше табличного, а значит нулевая гипотеза отвергается.
 ```{r}
-nervous_period_mapping <- c('Rare' = 1, "SeveralPerYear" = 2, "OnePerMonth" = 3, 'SeveralPerMonth' = 4, 'OnePerWeek' = 5, 'SeveralPerWeek' = 6, 'OnePerDay' = 7)
-new_nervous_period <- nervous_period_mapping[as.factor(finished_data$NervousPeriod)]
-ranks <- rank(new_nervous_period)
-df_nerv_isDist <- data.frame(NervousPeriod=ranks, IsDisturbed=finished_data$IsDisturbed)
-disturbed_mean <- mean(subset(df_nerv_isDist, IsDisturbed=="Да")$NervousPeriod)
-notDisturbed_mean <- mean(subset(df_nerv_isDist, IsDisturbed=="Нет")$NervousPeriod)
-N <- length(finished_data$IsDisturbed)
-r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
-r_rb
+corr_matrix['ChronicWeak', 'NervousPeriod'] = get_val(chronicWeak_NervousPeriod_corr)
+corr_matrix['NervousPeriod', 'ChronicWeak'] = get_val(chronicWeak_NervousPeriod_corr)
 ```
-Рангово бисериальный коэффициент же показал, что связи практически нет. Проверим гипотезу о отсутствии связи:
-Пусть H0 - коэффициент корреляции равен нулю  
-H1 - коэффициент корреляции отличен от нуля  
-Наблюдаемое значение:  
+  
+# Earning
+NervousPeriod - ранговая переменная и Earning - ранговая переменные. Для нахождения связи будем использовать корреляцию Кендалла  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
 ```{r}
-abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+nervousPeriod_Earning_corr <- get_kendall_cor(as.numeric(finished_data$NervousPeriod), as.numeric(finished_data$Earning))
+nervousPeriod_Earning_corr
 ```
-Найдём табличное значение для df=n-2, a = 0.025:
+Как видим, между возрастом и временем сна почти нет связи. Наблюдаемое t входит за доверительный интервал, а значит нулевая гипотеза принимается  
 ```{r}
-qt(0.025, N-2)
+corr_matrix['NervousPeriod', 'Earning'] = get_val(nervousPeriod_Earning_corr)
+corr_matrix['Earning', 'NervousPeriod'] = get_val(nervousPeriod_Earning_corr)
 ```
-Как видим, табличное значение входит в довериательный интервал, а значит гипотеза об отсутствии связи принимается.
+  
+# PersonalDisturbance
+PersonalDisturbance - дихотомическая, NervousPeriod - ранговая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+nervousPeriod_PersonalDisturbance_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "PersonalDisturbance")
+nervousPeriod_PersonalDisturbance_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t выходит за доверительный интервал, значит гипотеза об отсутствии связи отвергается  
+```{r}
+corr_matrix['NervousPeriod', 'PersonalDisturbance'] = get_val(nervousPeriod_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'NervousPeriod'] = get_val(nervousPeriod_PersonalDisturbance_corr)
+```
+  
+# IsDisturbed
+IsDisturbed - дихотомическая, NervousPeriod - ранговая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+nervousPeriod_IsDisturbed_corr <- get_rank_biser_coef_pearson(finished_data, "NervousPeriod", "IsDisturbed")
+nervousPeriod_IsDisturbed_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимаетсяя  
+```{r}
+corr_matrix['NervousPeriod', 'IsDisturbed'] = get_val(nervousPeriod_IsDisturbed_corr)
+corr_matrix['IsDisturbed', 'NervousPeriod'] = get_val(nervousPeriod_IsDisturbed_corr)
+```
+  
 ## ChronicWeak
-Для нахождение связи применим коэффициенты ассоциации и контингенции
+# Earning
+Earning - ранговая переменная, ChronicWeak - дихотомическая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
+```{r}
+chronicWeak_Earning_corr <- get_rank_biser_coef_pearson(finished_data, "Earning", "ChronicWeak")
+chronicWeak_Earning_corr
+```
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит за доверительный интервал, значит гипотеза об отсутствии связи принимается  
+  
+# IsDisturbed
+Для нахождения связи применим коэффициенты ассоциации и контингенции
 ```{r}
 assoc(table(subset(finished_data, select=c(ChronicWeak, IsDisturbed))))
 ```
 ```{r}
-conting(table(subset(finished_data, select=c(ChronicWeak, IsDisturbed))))
+chronicWeak_IsDisturbed_conting <- conting(table(subset(finished_data, select=c(ChronicWeak, IsDisturbed))))
+chronicWeak_IsDisturbed_conting
 ```
-Связи между наличием хронических болезней и тревожностью вероятнее всего нет, так как коэффициент ассоциации меньше 0.5, а коэффициент контингенции меньше 0.3.
+Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.  
+```{r}
+corr_matrix['ChronicWeak', 'IsDisturbed'] = chronicWeak_IsDisturbed_conting
+corr_matrix['IsDisturbed', 'ChronicWeak'] = chronicWeak_IsDisturbed_conting
+```
+  
+# PersonalDisturbance
+Для нахождения связи применим коэффициенты ассоциации и контингенции
+```{r}
+assoc(table(subset(finished_data, select=c(ChronicWeak, PersonalDisturbance))))
+```
+```{r}
+chronicWeak_PersonalDisturbance_conting <- conting(table(subset(finished_data, select=c(ChronicWeak, PersonalDisturbance))))
+chronicWeak_PersonalDisturbance_conting
+```
+Точного ответа о связи между полом и тревожностью дать нельзя, так как коэффициент ассоциации немногим больше 0.5, а коэффициент контингенции немногим меньше 0.3.  
+```{r}
+corr_matrix['ChronicWeak', 'PersonalDisturbance'] = chronicWeak_PersonalDisturbance_conting
+corr_matrix['PersonalDisturbance', 'ChronicWeak'] = chronicWeak_PersonalDisturbance_conting
+```
+  
 ## Earning
-Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
-H0 - связи нет  
-H1 - связь есть  
+# PersonalDisturbance
+PersonalDisturbance - дихотомическая, Earning - ранговая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
 ```{r}
-contingence <- pearson.contingence(table(subset(finished_data, select=c(Earning, IsDisturbed))), length(finished_data[, 1]))
-print(contingence)
+earning_PersonalDisturbance_corr <- get_rank_biser_coef_pearson(finished_data, "Earning", "PersonalDisturbance")
+earning_PersonalDisturbance_corr
 ```
-Коэффициент равен 0.25, присутствует слабая стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
 ```{r}
-earning_mapping <- c('less_than_15' = 1, "from_15_to_30" = 2, "from_30_to_60" = 3, 'greater_than_60' = 4)
-new_earning <- earning_mapping[as.factor(finished_data$Earning)]
-ranks <- rank(new_earning)
-df_earn_isDist <- data.frame(Earning=ranks, IsDisturbed=finished_data$IsDisturbed)
-disturbed_mean <- mean(subset(df_earn_isDist, IsDisturbed=="Да")$Earning)
-notDisturbed_mean <- mean(subset(df_earn_isDist, IsDisturbed=="Нет")$Earning)
-N <- length(finished_data$IsDisturbed)
-r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
-r_rb
+corr_matrix['Earning', 'PersonalDisturbance'] = get_val(earning_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'Earning'] = get_val(earning_PersonalDisturbance_corr)
 ```
-Рангово бисериальный коэффициент же показал, что связи практически нет. Проверим гипотезу о отсутствии связи:
-Пусть H0 - коэффициент корреляции равен нулю  
-H1 - коэффициент корреляции отличен от нуля  
-Наблюдаемое значение:  
+  
+# IsDisturbed
+IsDisturbed - дихотомическая, Earning - ранговая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
 ```{r}
-abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+earning_IsDisturbed_corr <- get_rank_biser_coef_pearson(finished_data, "Earning", "IsDisturbed")
+earning_IsDisturbed_corr
 ```
-Найдём табличное значение для df=n-2, a = 0.025:
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
 ```{r}
-qt(0.025, N-2)
+corr_matrix['Earning', 'IsDisturbed'] = get_val(earning_IsDisturbed_corr)
+corr_matrix['IsDisturbed', 'Earning'] = get_val(earning_IsDisturbed_corr)
 ```
-Как видим, табличное значение входит в доверительный интервал, а значит гипотеза об отсутствии связи принимается.
-## PersonalDisturbance
-Для нахождения степени связи используем коэффициент взаимной сопряжённости Пирсона:  
-H0 - связи нет  
-H1 - связь есть  
+  
+## IsDisturbed
+  
+# PersonalDisturbance
+IsDisturbed - дихотомическая, PersonalDisturbance - ранговая. Найдём степень связи при помощи рангово-бисериального коэффициента Пирсона:  
+H0 - связи между переменными нет  
+H1 - связь между переменными есть  
 ```{r}
-contingence <- pearson.contingence(table(subset(finished_data, select=c(PersonalDisturbance, IsDisturbed))), length(finished_data[, 1]))
-print(contingence)
+earning_PersonalDisturbance_corr <- get_rank_biser_coef_pearson(finished_data, "PersonalDisturbance", "IsDisturbed")
+earning_PersonalDisturbance_corr
 ```
-Коэффициент равен 0.51, присутствует умеренная стохастическая связь. Гипотеза об отсутствии связи отклоняется. Так же проверим по рангово-бисериальному коэффициенту корелляции Пирсона.
+Как можно заметить, связь между полом опрошенных и периодичность нервных срывов слабая. Наблюдаемое t входит в доверительный интервал, значит гипотеза об отсутствии связи принимается  
 ```{r}
-pers_disturb_mapping <- c('low' = 1, "middle" = 2, "high" = 3)
-new_pers_disturb <- pers_disturb_mapping[as.factor(finished_data$PersonalDisturbance)]
-ranks <- rank(new_pers_disturb)
-df_pers_disturb_isDist <- data.frame(PersonalDisturbance=ranks, IsDisturbed=finished_data$IsDisturbed)
-disturbed_mean <- mean(subset(df_pers_disturb_isDist, IsDisturbed=="Да")$PersonalDisturbance)
-notDisturbed_mean <- mean(subset(df_pers_disturb_isDist, IsDisturbed=="Нет")$PersonalDisturbance)
-N <- length(finished_data$IsDisturbed)
-r_rb <- 2 / N * abs(disturbed_mean - notDisturbed_mean)
-r_rb
+corr_matrix['Earning', 'PersonalDisturbance'] = get_val(earning_PersonalDisturbance_corr)
+corr_matrix['PersonalDisturbance', 'Earning'] = get_val(earning_PersonalDisturbance_corr)
 ```
-Рангово бисериальный коэффициент же показал, что умеренная. Проверим гипотезу о отсутствии связи:
-Пусть H0 - коэффициент корреляции равен нулю  
-H1 - коэффициент корреляции отличен от нуля  
-Наблюдаемое значение:  
+  
+Выведем температурную карту:
 ```{r}
-abs(r_rb)/sqrt(1 - r_rb**2) * sqrt(N - 2)
+library(pheatmap)
+pheatmap(abs(corr_matrix), display_numbers = T)
 ```
-Найдём табличное значение для df=n-2, a = 0.025:
+  
 ```{r}
-qt(0.025, N-2)
+library(dplyr)
+exogen_data <- select(finished_data, -c(IsDisturbed, PersonalDisturbance))
+
+exogen_data$Age <- (exogen_data$Age - mean(exogen_data$Age)) / sd(exogen_data$Age)
+exogen_data$FreeTime <- (exogen_data$FreeTime - mean(exogen_data$FreeTime)) / sd(exogen_data$FreeTime)
+exogen_data$SleepTime <- (exogen_data$SleepTime - mean(exogen_data$SleepTime)) / sd(exogen_data$SleepTime)
+
+  
+quant_col_names <- c("Age", "FreeTime", "SleepTime")
+quant_cols <- exogen_data[, quant_col_names]
+qual_cols <- select(exogen_data, -quant_col_names)
+qual_cols_name <- colnames(qual_cols)
+library(PCAmixdata)
+pca_result <- PCAmix(
+  X.quanti = quant_cols,
+  X.quali = qual_cols,
+  rename.level = TRUE,
+  ndim = 5,
+  graph = FALSE)
+summary(pca_result)
 ```
-Модуль наблюдаемого значения больше модуля табличного, а значит гипотеза об отсутствии связи отклоняется.
+```{r}
+new_df <- data.frame(
+  pc1 = finished_data$Age*0.35
+        + finished_data$FreeTime*0.22
+        + finished_data$SleepTime*0.16
+        + as.numeric(finished_data$Sex)*0.26
+        + as.numeric(finished_data$IsStudying)*0.30
+        + as.numeric(finished_data$IsWorking)*0.15
+        + as.numeric(finished_data$Music)*0.34
+        + as.numeric(finished_data$NervousPeriod)*0.44
+        + as.numeric(finished_data$ChronicWeak)*0.07
+        + as.numeric(finished_data$Earning)*0.47,
+  pc2 = finished_data$Age*0.19
+        + finished_data$FreeTime*0.27
+        + finished_data$SleepTime*0.27
+        + as.numeric(finished_data$Sex)*0.17
+        + as.numeric(finished_data$IsStudying)*0.1
+        + as.numeric(finished_data$IsWorking)*0.12
+        + as.numeric(finished_data$Music)*0.26
+        + as.numeric(finished_data$NervousPeriod)*0.54
+        + as.numeric(finished_data$ChronicWeak)*0.39
+        + as.numeric(finished_data$Earning)*0.23,
+  pc3 = finished_data$Age*0.14
+        + finished_data$FreeTime*0
+        + finished_data$SleepTime*0.03
+        + as.numeric(finished_data$Sex)*0.08
+        + as.numeric(finished_data$IsStudying)*0.06
+        + as.numeric(finished_data$IsWorking)*0.44
+        + as.numeric(finished_data$Music)*0.21
+        + as.numeric(finished_data$NervousPeriod)*0.26
+        + as.numeric(finished_data$ChronicWeak)*0
+        + as.numeric(finished_data$Earning)*0.75,
+  pc4 = finished_data$Age*0.01
+        + finished_data$FreeTime*0
+        + finished_data$SleepTime*0.08
+        + as.numeric(finished_data$Sex)*0.19
+        + as.numeric(finished_data$IsStudying)*0.17
+        + as.numeric(finished_data$IsWorking)*0
+        + as.numeric(finished_data$Music)*0.21
+        + as.numeric(finished_data$NervousPeriod)*0.41
+        + as.numeric(finished_data$ChronicWeak)*0.11
+        + as.numeric(finished_data$Earning)*0.25,
+  pc5 = finished_data$Age*0
+        + finished_data$FreeTime*0.02
+        + finished_data$SleepTime*0.09
+        + as.numeric(finished_data$Sex)*0
+        + as.numeric(finished_data$IsStudying)*0
+        + as.numeric(finished_data$IsWorking)*0
+        + as.numeric(finished_data$Music)*0.56
+        + as.numeric(finished_data$NervousPeriod)*0.54
+        + as.numeric(finished_data$ChronicWeak)*0.12
+        + as.numeric(finished_data$Earning)*0.04,
+  )
+```
+  
 ### Построение модели
 Так как в требованиях к ПО описано, что от ПО требуется выводить вероятность наличия тревоги, будем использовать логистическую регрессию. Экзогенными переменными у нас будут:  
   Age - возраст  
@@ -631,9 +1576,10 @@ summary(model_l_n)
 H0 - упрощённая модель моделирует выборку лучше  
 H1 - полная модель моделирует выборку лучше  
 ```{r}
-lrtest(model_l_c, model_l_n)$Chisq[2]
+lr <- lrtest(model_l_c, model_l_n)
+lr$Chisq[2]
 ```
-Наблюдаемый хи-квадрат:
+Критический хи-квадрат:
 ```{r}
 qchisq(0.95, length(model_l_c$coefficients) - length(model_l_n$coefficients))
 ```
