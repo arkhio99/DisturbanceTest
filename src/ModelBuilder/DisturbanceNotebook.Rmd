@@ -1427,7 +1427,7 @@ pheatmap(abs(corr_matrix), display_numbers = T)
   
 ```{r}
 library(dplyr)
-exogen_data <- select(finished_data, -c(IsDisturbed, PersonalDisturbance))
+exogen_data <- dplyr::select(finished_data, -c("IsDisturbed", "PersonalDisturbance"))
 
 exogen_data$Age <- (exogen_data$Age - mean(exogen_data$Age)) / sd(exogen_data$Age)
 exogen_data$FreeTime <- (exogen_data$FreeTime - mean(exogen_data$FreeTime)) / sd(exogen_data$FreeTime)
@@ -1436,7 +1436,7 @@ exogen_data$SleepTime <- (exogen_data$SleepTime - mean(exogen_data$SleepTime)) /
   
 quant_col_names <- c("Age", "FreeTime", "SleepTime")
 quant_cols <- exogen_data[, quant_col_names]
-qual_cols <- select(exogen_data, -quant_col_names)
+qual_cols <- dplyr::select(exogen_data, -quant_col_names)
 qual_cols_name <- colnames(qual_cols)
 library(PCAmixdata)
 pca_result <- PCAmix(
@@ -1447,8 +1447,11 @@ pca_result <- PCAmix(
   graph = FALSE)
 summary(pca_result)
 ```
+
+
 ```{r}
-new_df <- data.frame(
+last_finished_data <- finished_data
+finished_data <- data.frame(
   pc1 = finished_data$Age*0.35
         + finished_data$FreeTime*0.22
         + finished_data$SleepTime*0.16
@@ -1499,7 +1502,7 @@ new_df <- data.frame(
         + as.numeric(finished_data$NervousPeriod)*0.54
         + as.numeric(finished_data$ChronicWeak)*0.12
         + as.numeric(finished_data$Earning)*0.04,
-  )
+  PersonalDisturbance = finished_data$PersonalDisturbance)
 ```
   
 ### Построение модели
@@ -1533,45 +1536,36 @@ new_df <- data.frame(
 Эндогенной переменной будет IsDisturbed - чувствует ли тревогу человек.  
 Разобьём выборку на тренировочную и тестовую  
 ```{r тренировочная и тестовая выборка}
-split <- sample.split(finished_data$IsDisturbed, SplitRatio=0.7)
+split <- sample.split(finished_data$PersonalDisturbance, SplitRatio=0.7)
 train <- subset(finished_data, split == TRUE)
 test <- subset(finished_data, split == FALSE)
 ```
 Посмотрим на статистику IsDisturbed для тренировочной выборки:
 ```{r}
-summary(train$IsDisturbed)
+summary(train$PersonalDisturbance)
 ```
 Как видим, количество количество "Нет" меньше, чем "Да". Выполним DownSampling:
 ```{r}
 library(caret)
-train <- downSample(train[, c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12)], y=train$IsDisturbed, yname="IsDisturbed")
-summary(train$IsDisturbed)
+train <- upSample(train[c("pc1", "pc2", "pc3", "pc4", "pc5")], y=train$PersonalDisturbance, yname="PersonalDisturbance")
+summary(train$PersonalDisturbance)
 ```
-Построим логит-, пробит- и гомпит-модель, чтобы выбрать наиболее подходящую.  
-Удалим признак NervousPeriod, так как он не даёт нам рассчитать модель.  
-Будем использовать только те экзогенные переменные, для которых связь с эндогенной наиболее высока и подтверждена  
+
 ## Логит-модель
 ```{r}
-model_l_c <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + SleepTime + NervousPeriod + ChronicWeak + Earning + PersonalDisturbance,
+model_l_c <- glm(PersonalDisturbance ~ pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("logit"))
 summary(model_l_c)
 ```
-Как видим все экзогенные параметры абсолютно незначимы.  
-Будем использовать только те экзогенные переменные, для которых связь с эндогенной наиболее высока и подтверждена  
+
 ```{r}
-model_l_n <- glm(IsDisturbed ~ FreeTime + PersonalDisturbance,
+model_l_n <- glm(PersonalDisturbance ~ 0 + pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("logit"))
 summary(model_l_n)
 ```
-Удалим PersonalDisturbance:
-```{r}
-model_l_n <- glm(IsDisturbed ~ FreeTime,
-                 train,
-                 family = binomial("logit"))
-summary(model_l_n)
-```
+
 Выберем модель на основе теста отношения максимального правдоподобия:  
 H0 - упрощённая модель моделирует выборку лучше  
 H1 - полная модель моделирует выборку лучше  
@@ -1583,31 +1577,25 @@ lr$Chisq[2]
 ```{r}
 qchisq(0.95, length(model_l_c$coefficients) - length(model_l_n$coefficients))
 ```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
+Как видим, наблюдаемое хи-квадрат меньше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной принимается с уровнем значимости 0.05  
 ```{r}
-model_l <- model_l_c
+model_l <- model_l_n
 ```
 ## Пробит-модель
 ```{r}
-model_p_c <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + SleepTime + NervousPeriod + ChronicWeak + Earning + PersonalDisturbance,
+model_p_c <- glm(PersonalDisturbance ~ pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("probit"))
 summary(model_p_c)
 ```
-Как видим, все коэффициенты незначимы. Построим модель на основе эзкогенных переменных, с которыми имеется подтверждённая связь.
+
 ```{r}
-model_p_n <- glm(IsDisturbed ~ FreeTime + PersonalDisturbance,
+model_p_n <- glm(PersonalDisturbance ~ 0 + pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("probit"))
 summary(model_p_n)
 ```
-Удалим PersonalDisturbance:
-```{r}
-model_p_n <- glm(IsDisturbed ~ FreeTime,
-                 train,
-                 family = binomial("probit"))
-summary(model_p_n)
-```
+
 Выберем модель на основе теста отношения максимального правдоподобия:  
 H0 - упрощённая модель моделирует выборку лучше  
 H1 - полная модель моделирует выборку лучше  
@@ -1618,31 +1606,25 @@ lrtest(model_p_c, model_p_n)$Chisq[2]
 ```{r}
 qchisq(0.95, length(model_p_c$coefficients) - length(model_p_n$coefficients))
 ```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
+Как видим, наблюдаемое хи-квадрат меньше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной принимается с уровнем значимости 0.05  
 ```{r}
-model_p <- model_p_c
+model_p <- model_p_n
 ```
 ## Гомпит-модель
 ```{r}
-model_g_c <- glm(IsDisturbed ~ Age + Sex + IsStudying + IsWorking + Music + FreeTime + SleepTime + NervousPeriod + ChronicWeak + Earning + PersonalDisturbance,
+model_g_c <- glm(PersonalDisturbance ~ pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("cloglog"))
 summary(model_g_c)
 ```
-Как видим, нет ни одного значимого коэффициента. Построим модель на основе экзогенных переменных, у которых есть связь с эндогенной переменной.
+
 ```{r}
-model_g_n <- glm(IsDisturbed ~ FreeTime + PersonalDisturbance,
+model_g_n <- glm(PersonalDisturbance ~ 0 + pc1 + pc2 + pc3 + pc4 + pc5,
                  train,
                  family = binomial("cloglog"))
 summary(model_g_n)
 ```
-Удалим PersonalDistribution:
-```{r}
-model_g_n <- glm(IsDisturbed ~ FreeTime,
-                 train,
-                 family = binomial("cloglog"))
-summary(model_g_n)
-```
+
 Проверим тестом правдоподобия какая модель лучше, со всеми экзогенными переменными или упрощённая:
 H0 - упрощённая модель моделирует выборку лучше  
 H1 - полная модель моделирует выборку лучше  
@@ -1653,54 +1635,13 @@ lrtest(model_g_c, model_g_n)$Chisq[2]
 ```{r}
 qchisq(0.95, length(model_g_c$coefficients) - length(model_g_n$coefficients))
 ```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
+Как видим, наблюдаемое хи-квадрат меньше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной принимается с уровнем значимости 0.05  
 ```{r}
-model_g <- model_g_c
+model_g <- model_g_n
 ```
 ### Выбор модели
 ## Нахождение информационных критериев
 Для оценки моделей используются AIC, BIC, $R^2$ МакФаддена, тест отношения правдоподобия, критерий согласия Хосмера-Лемешоу, критерий Колмогорова-Смирнова и log-likelyhood.  
-Проведём LR-тесты для моделей, чтобы в дальнейшем сравнивать более походящие  
-  H0 - упрощённая модель лучше моделирует выборку  
-  H1 - комплексная модель лучше моделирует выборку  
-Логит-модель:  
-```{r}
-lrtest(model_l_c, model_l_n)$Chisq[2]
-```
-Хи-квадрат критическое:
-```{r}
-qchisq(0.95, length(model_l_c$coefficients) - length(model_l_n$coefficients))
-```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
-```{r}
-model_l <- model_l_c
-```
-  
-Пробит-модель:
-```{r}
-lrtest(model_p_c, model_p_n)$Chisq[2]
-```
-Хи-квадрат критическое:
-```{r}
-qchisq(0.95, length(model_p_c$coefficients) - length(model_p_n$coefficients))
-```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
-```{r}
-model_p <- model_p_c
-```
-  
-Гомпит-модель:
-```{r}
-lrtest(model_g_c, model_g_n)$Chisq[2]
-```
-Хи-квадрат критическое:
-```{r}
-qchisq(0.95, length(model_g_c$coefficients) - length(model_g_n$coefficients))
-```
-Как видим, наблюдаемое хи-квадрат больше критического, а значит гипотеза о том, что упрощённая модель лучше комплексной отвергается в пользу альтернативной гипотезы с уровнем значимости 0.05  
-```{r}
-model_g <- model_g_c
-```
 Заранее обозначим гипотезы для тестов:  
   Критерий согласия Хосмера-Лемешоу:  
     H0 - модель хорошо согласована с выборкой  
@@ -1721,16 +1662,48 @@ library(pscl)
 pR2s <- c(pR2(model_l)["McFadden"], pR2(model_p)["McFadden"], pR2(model_g)["McFadden"])
 
 library(vcdExtra)
-#hlTests <- c(HLtest(model_l, length(model_l$coefficients)+1)$p.value, HLtest(model_p, length(model_p$coefficients)+1)$p.value, HLtest(model_g, length(model_g$coefficients)+1)$p.value)
+hlTests <- c(HLtest(model_l, length(model_l$coefficients)+1)$p.value, HLtest(model_p, length(model_p$coefficients)+1)$p.value, HLtest(model_g, length(model_g$coefficients)+1)$p.value)
 
 ks_pvalue_model_l <- ks.test(model_l$residuals, "pnorm", mean(model_l$residuals), sd(model_l$residuals))$p.value
 ks_pvalue_model_p <- ks.test(model_p$residuals, "pnorm", mean(model_p$residuals), sd(model_p$residuals))$p.value
 ks_pvalue_model_g <- ks.test(model_g$residuals, "pnorm", mean(model_g$residuals), sd(model_g$residuals))$p.value
 ks_pvalues <- c(ks_pvalue_model_l, ks_pvalue_model_p, ks_pvalue_model_g)
 
-info_crits <- data.frame(AICs, BICs, LogLH, pR2s, ks_pvalues)
+info_crits <- data.frame(AICs, BICs, LogLH, hlTests, pR2s, ks_pvalues)
 rownames(info_crits) <- c("Logit", "Probit", "Gompit")
 info_crits
 ```
+Меньший AIC принадлежит гомпит-модели  
+Меньший BIC принадлежит гомпит-модели  
+Меньший LogLH принадлежит логит-модели  
+Наибольший $R^2$ принадлежит гомпит-модели  
+Исходя из критерия Хосмера-Лемешоу, все модели согласованы с выборкой с уровнем значимости 0.05. Набиольший у пробит-модели  
+Исходя из p-значения для критерия Колмогорова-Смирнова, остатки распределены нормально только у пробит-модели с уровнем значимости 0.05.  
+Выберем гомпит-модель  .
+
+```{r}
+model_upsample <- model_g
+```
+  
+## Оценка построенной модели на основе графика QQ
+```{r}
+qqnorm(model_upsample$residuals)
+qqline(model_upsample$residuals, col="steelblue", lwd=2)
+```
+## Построение прогноза на основе тестовой выборки при помощи логит-модели
+```{r}
+test$predict <- predict(model_upsample, test, type='response')
+test$predict <- as.factor(ifelse(test$predict < 0.4, "low", "high"))
+confusionMatrix(data=test$predict, reference=test$PersonalDisturbance, positive="high")
+```
 
 
+
+```{r}
+library(ROCR)
+pr <- prediction(predict(model_upsample, test, type='response'), as.numeric(test$PersonalDisturbance))
+prf <- performance(pr, measure = "tpr", x.measure = "fpr")
+plot(prf)
+lines(c(0,1), c(0,1))
+title("ROC-кривая")
+```
