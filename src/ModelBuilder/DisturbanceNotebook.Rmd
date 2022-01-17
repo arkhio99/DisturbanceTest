@@ -1446,6 +1446,7 @@ pca_result <- PCAmix(
   ndim = 5,
   graph = FALSE)
 summary(pca_result)
+
 ```
 
 
@@ -1693,8 +1694,8 @@ qqline(model_upsample$residuals, col="steelblue", lwd=2)
 ## Построение прогноза на основе тестовой выборки при помощи логит-модели
 ```{r}
 test$predict <- predict(model_upsample, test, type='response')
-test$predict <- as.factor(ifelse(test$predict < 0.4, "low", "high"))
-confusionMatrix(data=test$predict, reference=test$PersonalDisturbance, positive="high")
+test$predict <- as.factor(ifelse(test$predict < 0.4, "high", "low"))
+confusionMatrix(data=test$predict, reference=test$PersonalDisturbance, positive="low")
 ```
 
 

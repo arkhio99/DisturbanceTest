@@ -13,7 +13,7 @@ namespace DisturbanceApp
         public ResultForm(double percent)
         {
             InitializeComponent();
-            ResultLbl.Text = percent.ToString() + "%";
+            ResultLbl.Text = $"{percent:2f}%";
         }
     }
 }

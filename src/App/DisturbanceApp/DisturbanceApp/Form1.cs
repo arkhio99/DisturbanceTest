@@ -91,7 +91,7 @@ namespace DisturbanceApp
                 { "Earning", earning[(string)EarningLB.SelectedItem] }
             };
 
-            var percent = Solver.Predict(answers) * 100;
+            var percent = (1 - Solver.Predict(answers)) * 100;
 
             var resultForm = new ResultForm(percent);
 
